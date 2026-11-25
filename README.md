@@ -1,9 +1,9 @@
 <div align="center">
-  <h1>Agentic Inbox</h1>
+  <h1>Novacore Mail</h1>
   <p><em>A self-hosted email client with an AI agent, running entirely on Cloudflare Workers</em></p>
 </div>
 
-Agentic Inbox lets you send, receive, and manage emails through a modern web interface -- all powered by your own Cloudflare account. Incoming emails arrive via [Cloudflare Email Routing](https://developers.cloudflare.com/email-routing/), each mailbox is isolated in its own [Durable Object](https://developers.cloudflare.com/durable-objects/) with a SQLite database, and attachments are stored in [R2](https://developers.cloudflare.com/r2/).
+Novacore Mail is a fork of [Cloudflare’s Agentic Inbox](https://github.com/cloudflare/agentic-inbox). It lets you send, receive, and manage email through a web interface powered by your own Cloudflare account. Incoming emails arrive via [Cloudflare Email Routing](https://developers.cloudflare.com/email-routing/), each mailbox is isolated in its own [Durable Object](https://developers.cloudflare.com/durable-objects/) with a SQLite database, and attachments are stored in [R2](https://developers.cloudflare.com/r2/).
 
 An **AI-powered Email Agent** can read your inbox, search conversations, and draft replies -- built with the [Cloudflare Agents SDK](https://developers.cloudflare.com/agents/) and [Workers AI](https://developers.cloudflare.com/workers-ai/).
 
@@ -12,21 +12,20 @@ An **AI-powered Email Agent** can read your inbox, search conversations, and dra
 
 Read the blog post to learn more about Cloudflare Email Service and how to use it with the Agents SDK, MCP, and from the Wrangler CLI: [Email for Agents](https://blog.cloudflare.com/email-for-agents/).
 
-## How to setup
+## Deploy to Cloudflare
 
-**Important**: Clicking the 'Deploy to Cloudflare' button is only one part of the setup. You must follow the **After deploying** steps as well. For a full step-by-step guide with screenshots, refer to this comment: 
-https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513
+The checked-in [Wrangler configuration](./wrangler.jsonc) deploys the Worker as `novacore-mail`. The web app and MCP endpoint use the custom domain `mail.novacore.cc`, and mailbox addresses use `@novacore.cc`. For another domain, update `routes[].pattern` for the web hostname and `vars.DOMAINS` for the mail domain in your copy before deploying.
 
-### To set up
+1. **Deploy the Worker.** The deploy button provisions R2, Durable Objects, and Workers AI. To deploy from a checkout with your own configuration, use the CLI steps below. Both paths require the remaining setup steps.
 
-1. Deploy to Cloudflare. The deploy flow will automatically provision R2, Durable Objects, and Workers AI. You'll be prompted for **DOMAINS**, which is the domain (yourdomain.com) you want to receive emails for (email@yourdomain.com).
+   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jiulongw/novacore-mail)
 
-     [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/agentic-inbox)
+2. **Configure Cloudflare Access.** Protect the web hostname under the Worker's Settings > Domains & Routes. Set the Worker's `POLICY_AUD` and `TEAM_DOMAIN` secrets using the values shown by Access. `TEAM_DOMAIN` accepts the team URL or the full URL ending in `/cdn-cgi/access/certs`. [One-click Access setup](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/)
+3. **Set up Email Routing.** On the mail domain, create a catch-all rule that delivers incoming mail to the Worker.
+4. **Enable outbound mail.** Configure Email Service for the sending domain. The Worker sends through the `EMAIL` binding. [Email Service documentation](https://developers.cloudflare.com/email-service/)
+5. **Create a mailbox.** Sign in to the deployed app and create the address that should receive mail. The Worker only stores incoming mail for existing mailboxes.
 
-2. **Configure Cloudflare Access** -- Enable [one-click Cloudflare Access](https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/) on your Worker under Settings > Domains & Routes. The modal will show your `POLICY_AUD` and `TEAM_DOMAIN` values. `TEAM_DOMAIN` can be either your Access team URL or the full `.../cdn-cgi/access/certs` URL. **You must set these as secrets for your Worker.**
-3. **Set up Email Routing** -- In the Cloudflare dashboard, go to your domain > Email Routing and create a catch-all rule that forwards to this Worker
-4. **Enable Email Service** -- The worker needs the `send_email` binding to send outbound emails. See [Email Service docs](https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/)
-5. **Create a mailbox** -- Visit your deployed app and create a mailbox for any address on your domain (e.g. `hello@example.com`)
+The upstream project also provides a [setup walkthrough with screenshots](https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513).
 
 ### Troubleshooting Access
 
@@ -43,6 +42,12 @@ https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513
 - **Auto-draft on new email** — Agent automatically reads inbound emails and generates draft replies, always requiring explicit confirmation before sending
 - **Configurable and persistent** — Custom system prompts per mailbox, persistent chat history, streaming markdown responses, and tool call visibility
 
+### Formatted mail over MCP
+
+MCP clients can pass formatted `bodyHtml` to the draft and send tools. The Worker preserves the supplied HTML, including links and layout. Both `send_email` and `send_reply` also send a plain-text alternative derived from the HTML.
+
+By default, `draft_reply` and `send_reply` append the original message. Pass `quote: false` when your HTML already includes the conversation history or you want to omit it. The web composer and MCP use citation markup that lets supporting mail clients collapse quoted history. In the plain-text version of an MCP reply, each quoted line starts with `> `.
+
 ## Stack
 
 - **Frontend:** React 19, React Router v7, Tailwind CSS, Zustand, TipTap, `@cloudflare/kumo`
@@ -50,23 +55,25 @@ https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513
 - **AI Agent:** Cloudflare Agents SDK (`AIChatAgent`), AI SDK v6, Workers AI (`@cf/moonshotai/kimi-k2.5`), `react-markdown` + `remark-gfm`
 - **Auth:** Cloudflare Access JWT validation (required outside local development)
 
-## Getting Started
+## Local development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-### Configuration
+Use the committed npm lockfile for reproducible installs. The fork pins `@cloudflare/vite-plugin` to `1.43.1` for compatibility with Workers types v4.
 
-1. Set your domain in `wrangler.jsonc`
-2. Create an R2 bucket named `agentic-inbox`: `wrangler r2 bucket create agentic-inbox`
+### Deploy from a checkout
 
-### Deploy
+After configuring your domains, create the R2 bucket if it does not already exist. The bucket name in `wrangler.jsonc` is `agentic-inbox`.
 
 ```bash
+npx wrangler r2 bucket create agentic-inbox
 npm run deploy
 ```
+
+After deployment, complete the Access, Email Routing, Email Service, and mailbox steps above.
 
 ## Prerequisites
 
