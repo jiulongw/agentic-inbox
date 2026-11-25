@@ -10,8 +10,10 @@
  */
 import DOMPurify from "dompurify";
 import { formatQuotedDate } from "shared/dates";
+import { buildQuotedReplyBlock as replyQuoteHtml, escapeHtml } from "shared/email-quotes";
 import type { Attachment } from "~/types";
 
+export { escapeHtml };
 export {
 	formatListDate,
 	formatDetailDate,
@@ -116,20 +118,6 @@ export function getSnippetText(
 }
 
 /**
- * Escape all five OWASP-recommended HTML special characters in plain text.
- * Safe for use in both text content and attribute contexts.
- */
-export function escapeHtml(text: string): string {
-	if (!text) return "";
-	return text
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
-}
-
-/**
  * Generate the HTML signature block for compose forms.
  */
 export function getSignatureBlock(settings?: {
@@ -156,19 +144,7 @@ export function buildQuotedReplyBlock(
 	sender: string,
 	body: string,
 ): string {
-	if (!body) return "";
-	const formattedDate = formatComposeDate(dateStr);
-	
-	// HTML-escape sender to prevent <john@example.com> from disappearing as a tag
-	const escapedSender = escapeHtml(sender);
-
-	// Sanitize the body to plain text to prevent stored XSS.
-	// The original HTML renders safely in the sandboxed iframe, but quoted
-	// reply blocks are injected into the compose editor where raw HTML would
-	// execute. Convert to escaped plain text instead.
-	const bodyToQuote = escapeHtml(stripHtml(body)).replace(/\n/g, "<br>");
-
-	return `<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${formattedDate}, ${escapedSender} wrote:<br><br>${bodyToQuote}</blockquote>`;
+	return replyQuoteHtml({ date: dateStr, sender, body });
 }
 
 /**

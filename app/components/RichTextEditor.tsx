@@ -27,6 +27,7 @@ import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useCallback, useEffect } from "react";
+import { MailAttribution, MailQuote } from "~/lib/compose-quote";
 
 interface RichTextEditorProps {
 	value: string;
@@ -39,7 +40,9 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
 	const editor = useEditor({
 		extensions: [
-			StarterKit,
+			StarterKit.configure({ trailingNode: { notAfter: ["mailQuote"] } }),
+			MailQuote,
+			MailAttribution,
 			Underline,
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
 			LinkExtension.configure({ openOnClick: false }),

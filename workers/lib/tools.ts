@@ -27,6 +27,7 @@ import {
 } from "./email-helpers";
 import { prepareDraftBody } from "./ai";
 import { sendEmail } from "../email-sender";
+import { buildReplyQuote, quotedBodyText } from "../../shared/email-quotes";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 
@@ -387,14 +388,15 @@ export async function toolSendReply(
 	if (!fromDomain) throw new Error("Invalid mailbox email address");
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 
-	const quotedBlock = params.quote !== false
-		? buildQuotedReplyBlock({
-				date: originalEmail.date,
-				sender: originalEmail.sender || params.to,
-				body: originalEmail.body ?? undefined,
-			})
-		: "";
-	const fullBodyHtml = params.bodyHtml + quotedBlock;
+	const quote = params.quote === false
+		? { html: "", text: "" }
+		: buildReplyQuote({
+			date: originalEmail.date,
+			sender: originalEmail.sender || params.to,
+			body: originalEmail.body,
+		});
+	const fullBodyHtml = params.bodyHtml + quote.html;
+	const text = [quotedBodyText(params.bodyHtml), quote.text].filter(Boolean).join("\n\n");
 
 	try {
 		await sendEmail(env.EMAIL, {
@@ -402,6 +404,7 @@ export async function toolSendReply(
 			from: mailboxId,
 			subject: params.subject,
 			html: fullBodyHtml,
+			text,
 			headers: buildThreadingHeaders(originalMsgId, references),
 		});
 	} catch (e) {
@@ -462,6 +465,7 @@ export async function toolSendEmail(
 			from: mailboxId,
 			subject: params.subject,
 			html: params.bodyHtml,
+			text: quotedBodyText(params.bodyHtml),
 		});
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);

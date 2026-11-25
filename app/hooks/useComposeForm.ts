@@ -4,14 +4,12 @@
 
 import { useKumoToastManager } from "@cloudflare/kumo";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { buildForwardQuote } from "shared/email-quotes";
 import {
 	buildQuotedReplyBlock,
-	escapeHtml,
-	formatComposeDate,
 	getSignatureBlock,
 	htmlToPlainText,
 	splitEmailList,
-	stripHtml,
 	toEmailListValue,
 } from "~/lib/utils";
 import { useDeleteEmail, useForwardEmail, useReplyToEmail, useSaveDraft, useSendEmail } from "~/queries/emails";
@@ -57,17 +55,6 @@ function getPrefixedSubject(subject: string, prefix: "Re" | "Fwd") {
 	return subject.startsWith(expectedPrefix)
 		? subject
 		: `${expectedPrefix}${subject}`;
-}
-
-function buildForwardBody(
-	original: NonNullable<ReturnType<typeof useUIStore.getState>["composeOptions"]["originalEmail"]>,
-	sigBlock: string,
-) {
-	const safeSender = escapeHtml(original.sender);
-	const safeSubject = escapeHtml(original.subject);
-	const safeBody = escapeHtml(stripHtml(original.body || "")).replace(/\n/g, "<br>");
-
-	return `<p><br></p>${sigBlock ? `${sigBlock}<br>` : ""}<div style="border: 1px solid #ddd; padding: 1em; background-color: #f9f9f9; margin: 1em 0;"><strong>Forwarded message:</strong><br><strong>From:</strong> ${safeSender}<br><strong>Date:</strong> ${formatComposeDate(original.date)}<br><strong>Subject:</strong> ${safeSubject}<br><br>${safeBody}</div>`;
 }
 
 function buildReplyAllFields(
@@ -152,7 +139,7 @@ function buildInitialComposeFields(
 		return {
 			...EMPTY_FIELDS,
 			subject: getPrefixedSubject(original.subject, "Fwd"),
-			body: buildForwardBody(original, sigBlock),
+			body: `<p><br></p>${sigBlock ? `${sigBlock}<br>` : ""}${buildForwardQuote(original)}`,
 		};
 	}
 

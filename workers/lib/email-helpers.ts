@@ -12,7 +12,10 @@ import type { MailboxDO } from "../durableObject";
 import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
+import { escapeHtml, removeStyleAndScriptBlocks } from "../../shared/email-quotes";
 import { formatQuotedDate } from "../../shared/dates";
+
+export { buildQuotedReplyBlock, escapeHtml } from "../../shared/email-quotes";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -150,20 +153,6 @@ export async function resolveOriginalEmail(
 // ── HTML Utilities ─────────────────────────────────────────────────
 
 /**
- * Escape all five OWASP-recommended HTML special characters in plain text.
- * Safe for use in both text content and attribute contexts.
- */
-export function escapeHtml(text: string): string {
-	if (!text) return "";
-	return text
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
-}
-
-/**
  * Convert plain text to a simple HTML block with preserved whitespace.
  * Uses both `white-space:pre-wrap` (modern clients) and `<br>` tags
  * (clients that strip inline styles, e.g. Outlook) as a belt-and-suspenders approach.
@@ -172,12 +161,6 @@ export function textToHtml(text: string): string {
 	if (!text) return "";
 	const escaped = escapeHtml(text).replace(/\n/g, "<br>");
 	return `<div style="white-space:pre-wrap">${escaped}</div>`;
-}
-
-function removeStyleAndScriptBlocks(html: string): string {
-	return html
-		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
 }
 
 /**
@@ -198,48 +181,6 @@ export function stripHtmlToText(html: string): string {
  * @deprecated Use `formatQuotedDate` from `shared/dates` directly.
  */
 export const formatEmailDate = formatQuotedDate;
-
-const quoteEntities: Record<string, string> = {
-	"&amp;": "&",
-	"&lt;": "<",
-	"&gt;": ">",
-	"&quot;": '"',
-	"&#39;": "'",
-	"&nbsp;": "\u00a0",
-};
-
-function quotedBodyText(html: string): string {
-	return removeStyleAndScriptBlocks(html)
-		.replace(/<br\b[^>]*>|<\/(?:p|div|li)\s*>/gi, "\n")
-		.replace(/<[^>]+>/g, "")
-		.replace(/\r\n?/g, "\n")
-		.trim()
-		.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => quoteEntities[entity]);
-}
-
-/**
- * Build a quoted reply block HTML string from original email data.
- */
-export function buildQuotedReplyBlock(original: {
-	date?: string;
-	sender?: string;
-	body?: string;
-}): string {
-	if (!original.body) return "";
-	
-	// HTML-escape sender and date to prevent injection
-	const originalSender = escapeHtml(original.sender || "unknown");
-	const originalDate = escapeHtml(formatEmailDate(original.date || ""));
-
-	// Sanitize the body to plain text to prevent stored XSS.
-	// The original HTML renders safely in the sandboxed iframe, but quoted
-	// reply blocks are injected into the compose editor and outgoing emails
-	// where raw HTML would execute. Convert to escaped plain text instead.
-	const plainBody = quotedBodyText(original.body);
-	const bodyToQuote = escapeHtml(plainBody).replace(/\n/g, "<br>");
-
-	return `<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${originalDate}, ${originalSender} wrote:<br><br>${bodyToQuote}</blockquote>`;
-}
 
 // ── Tool Logic (getFullEmail / getFullThread) ──────────────────────
 
