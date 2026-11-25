@@ -14,6 +14,10 @@ Read the blog post to learn more about Cloudflare Email Service and how to use i
 
 ## Deploy to Cloudflare
 
+Cloudflare automatically deploys this repository’s `main` branch to `mail.novacore.cc`. Merging a pull request into `main` triggers a production deployment.
+
+### Set up a new deployment
+
 The checked-in [Wrangler configuration](./wrangler.jsonc) deploys the Worker as `novacore-mail`. The web app and MCP endpoint use the custom domain `mail.novacore.cc`, and mailbox addresses use `@novacore.cc`. For another domain, update `routes[].pattern` for the web hostname and `vars.DOMAINS` for the mail domain in your copy before deploying.
 
 1. **Deploy the Worker.** The deploy button provisions R2, Durable Objects, and Workers AI. To deploy from a checkout with your own configuration, use the CLI steps below. Both paths require the remaining setup steps.

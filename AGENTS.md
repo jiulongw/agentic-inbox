@@ -1,5 +1,7 @@
 # Working on Novacore Mail
 
+Cloudflare automatically deploys changes to `main` to production at `mail.novacore.cc`.
+
 ## Local workflow
 
 - Use `npm ci` for a clean install and `npm run dev` to start the app. The fork pins `@cloudflare/vite-plugin` for compatibility with Workers types v4. Keep `package-lock.json` in sync when changing dependencies.
