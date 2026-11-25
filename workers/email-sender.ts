@@ -47,7 +47,7 @@ export async function sendEmail(
 		subject: params.subject,
 	};
 
-	if (params.html) message.html = params.html;
+	if (params.html !== undefined) message.html = params.html;
 	if (params.text) message.text = params.text;
 	if (params.cc) message.cc = params.cc;
 	if (params.bcc) message.bcc = params.bcc;

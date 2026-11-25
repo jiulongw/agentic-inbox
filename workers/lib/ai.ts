@@ -9,7 +9,8 @@
  * - verifyDraft: reviews draft email bodies and removes agent/system artifacts.
  */
 
-import { escapeHtml, stripHtmlToText, textToHtml } from "./email-helpers";
+import { stripHtmlToText, textToHtml } from "./email-helpers";
+import type { Env } from "../types";
 
 // ── Prompt Injection Scanner ───────────────────────────────────────
 
@@ -29,7 +30,6 @@ export async function isPromptInjection(ai: Ai, bodyHtml: string | null | undefi
 
 	try {
 		const response = (await ai.run(
-			// @ts-expect-error — model string not in generated union
 			"@cf/meta/llama-3.1-8b-instruct-fast",
 			{
 				messages: [
@@ -190,4 +190,19 @@ export async function verifyDraft(ai: Ai, body: string): Promise<string> {
 
 function normalizeWhitespace(s: string): string {
 	return s.replace(/\s+/g, " ").trim();
+}
+
+/** Preserve caller-supplied HTML. The built-in agent can opt into draft review. */
+export async function prepareDraftBody(
+	env: Pick<Env, "AI">,
+	params: { body: string; isPlainText?: boolean; runVerifyDraft?: boolean },
+): Promise<string | { error: string }> {
+	let body = params.isPlainText ? params.body.trim() : params.body;
+	if (params.runVerifyDraft) {
+		body = await verifyDraft(env.AI, body);
+		if (!body) {
+			return { error: "Draft verification failed — body could not be verified. Please try again." };
+		}
+	}
+	return params.isPlainText ? textToHtml(body) : body;
 }
