@@ -174,6 +174,12 @@ export function textToHtml(text: string): string {
 	return `<div style="white-space:pre-wrap">${escaped}</div>`;
 }
 
+function removeStyleAndScriptBlocks(html: string): string {
+	return html
+		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+}
+
 /**
  * Strip HTML tags and normalize whitespace to produce plain text.
  * Removes <style> and <script> blocks first to avoid injecting their
@@ -181,9 +187,7 @@ export function textToHtml(text: string): string {
  */
 export function stripHtmlToText(html: string): string {
 	if (!html) return "";
-	return html
-		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+	return removeStyleAndScriptBlocks(html)
 		.replace(/<[^>]+>/g, " ")
 		.replace(/\s+/g, " ")
 		.trim();
@@ -194,6 +198,24 @@ export function stripHtmlToText(html: string): string {
  * @deprecated Use `formatQuotedDate` from `shared/dates` directly.
  */
 export const formatEmailDate = formatQuotedDate;
+
+const quoteEntities: Record<string, string> = {
+	"&amp;": "&",
+	"&lt;": "<",
+	"&gt;": ">",
+	"&quot;": '"',
+	"&#39;": "'",
+	"&nbsp;": "\u00a0",
+};
+
+function quotedBodyText(html: string): string {
+	return removeStyleAndScriptBlocks(html)
+		.replace(/<br\b[^>]*>|<\/(?:p|div|li)\s*>/gi, "\n")
+		.replace(/<[^>]+>/g, "")
+		.replace(/\r\n?/g, "\n")
+		.trim()
+		.replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => quoteEntities[entity]);
+}
 
 /**
  * Build a quoted reply block HTML string from original email data.
@@ -213,7 +235,7 @@ export function buildQuotedReplyBlock(original: {
 	// The original HTML renders safely in the sandboxed iframe, but quoted
 	// reply blocks are injected into the compose editor and outgoing emails
 	// where raw HTML would execute. Convert to escaped plain text instead.
-	const plainBody = stripHtmlToText(original.body);
+	const plainBody = quotedBodyText(original.body);
 	const bodyToQuote = escapeHtml(plainBody).replace(/\n/g, "<br>");
 
 	return `<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${originalDate}, ${originalSender} wrote:<br><br>${bodyToQuote}</blockquote>`;

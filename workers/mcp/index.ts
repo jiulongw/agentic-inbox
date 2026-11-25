@@ -196,8 +196,9 @@ export class EmailMCP extends McpAgent<Env> {
 				bodyHtml: z
 					.string()
 					.describe("The HTML body of the reply"),
+				quote: z.boolean().default(true).describe("Include the quoted original message"),
 			},
-			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
+			async ({ mailboxId, originalEmailId, to, subject, bodyHtml, quote }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolDraftReply(env, mailboxId, {
@@ -205,8 +206,7 @@ export class EmailMCP extends McpAgent<Env> {
 					to,
 					subject,
 					body: bodyHtml,
-					isPlainText: false,
-					runVerifyDraft: true,
+					quote,
 				});
 				return mcpResult(result);
 			},
@@ -240,8 +240,6 @@ export class EmailMCP extends McpAgent<Env> {
 					to: to || "",
 					subject,
 					body: bodyHtml,
-					isPlainText: false,
-					runVerifyDraft: true,
 					in_reply_to,
 					thread_id,
 				});
@@ -322,8 +320,9 @@ export class EmailMCP extends McpAgent<Env> {
 				to: z.string().email().describe("Recipient email address"),
 				subject: z.string().describe("Subject line"),
 				bodyHtml: z.string().describe("The HTML body of the reply"),
+				quote: z.boolean().default(true).describe("Include the quoted original message"),
 			},
-			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
+			async ({ mailboxId, originalEmailId, to, subject, bodyHtml, quote }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolSendReply(env, mailboxId, {
@@ -331,6 +330,7 @@ export class EmailMCP extends McpAgent<Env> {
 					to,
 					subject,
 					bodyHtml,
+					quote,
 				});
 				if ("error" in result) {
 					// Preserve the original MCP error format for send failures
