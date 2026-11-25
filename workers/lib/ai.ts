@@ -105,7 +105,7 @@ RULES:
  */
 function splitQuotedBlock(html: string): { reply: string; quoted: string } {
 	const match = html.match(
-		/(\s*(?:<br\s*\/?>)\s*)?(<blockquote[\s\S]*<\/blockquote>)\s*$/i,
+		/(?:\s*<br\s*\/?>\s*)?(?:<div class="gmail_quote">(?:(?!<div class="gmail_quote">).)*?<\/blockquote>\s*<\/div>|<blockquote\b.*<\/blockquote>)\s*$/is,
 	);
 	if (match) {
 		const quoted = match[0];
